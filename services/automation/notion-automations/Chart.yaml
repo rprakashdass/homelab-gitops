@@ -21,4 +21,4 @@ maintainers:
 dependencies:
   - name: base-chart
     version: "1.0.0"
-    repository: "file://../../platform/base-chart"
+    repository: "file://../../../platform/base-chart"
