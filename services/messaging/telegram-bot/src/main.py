@@ -4,6 +4,7 @@ Centralized Telegram Bot for Homelab Platform
 
 Commands:
   /help       — Show available commands
+  /me         — Show bot info and status
   /resume     — Get latest resume/CV
   /deploy     — Deploy a service (future)
   /backup     — Trigger backup (future)
@@ -13,8 +14,10 @@ Commands:
   /health     — Cluster health status (future)
   /status     — System status (future)
 
-Notifications:
-  Any service can POST to /api/notify to send messages
+Features:
+  • Hourly heartbeat (silent, no notification)
+  • Service notifications via /api/notify
+  • Startup notification on bot launch
 """
 
 import os
@@ -88,7 +91,13 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 *Implemented:*
 • /help - Show this help message
+• /me - Show bot info and status
 • /resume - Get your resume/CV (latest version)
+
+*Features:*
+• 🫀 Hourly heartbeat (automatic)
+• 📨 Service notifications
+• 🔔 Startup notification
 
 *Coming Soon:*
 • /deploy - Deploy a service
@@ -98,11 +107,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 • /github - GitHub notifications
 • /health - Cluster health report
 • /status - System status overview
-
-*How it works:*
-1. Use any command above
-2. Bot responds with relevant information
-3. Other services send notifications automatically
 
 *For developers:*
 Send notifications via HTTP POST:
@@ -117,7 +121,7 @@ Content-Type: application/json
 }
 ```
 
-Need help? Type /help again or check the docs.
+Need help? Type /help again or use /me for bot status.
 """
     await update.message.reply_text(help_text, parse_mode="Markdown")
 
@@ -160,6 +164,38 @@ _Last updated: 2024-06-13_
     await update.message.reply_text(resume_text, parse_mode="Markdown")
     if update.effective_user:
         logger.info(f"Resume sent to user {update.effective_user.id}")
+
+
+async def me_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /me command - show bot info"""
+    if not update.message:
+        return
+
+    import socket
+    from datetime import datetime, timezone
+
+    hostname = socket.gethostname()
+    uptime = datetime.now(timezone.utc).isoformat()
+
+    info_text = f"""
+🤖 *Homelab Bot Information*
+
+*Hostname:* `{hostname}`
+*Status:* Running ✅
+*Started:* {uptime}
+
+*Features:*
+• 📨 Notifications from services
+• 📊 Cluster health reports
+• 💼 Resume delivery
+• 🔔 Hourly heartbeat
+
+*API Port:* 9999
+*Chat ID:* `{TELEGRAM_CHAT_ID[:10]}...`
+
+Use /help for more commands.
+"""
+    await update.message.reply_text(info_text, parse_mode="Markdown")
 
 
 async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -261,6 +297,28 @@ async def get_commands():
     }
 
 
+async def hourly_heartbeat(application):
+    """Send hourly heartbeat without notifying (silent background task)"""
+    from datetime import datetime, timezone
+
+    while True:
+        try:
+            await asyncio.sleep(3600)  # 1 hour
+            timestamp = datetime.now(timezone.utc).isoformat()
+            message = f"🫀 *Heartbeat*\n\nBot is alive at {timestamp}"
+
+            await application.bot.send_message(
+                chat_id=TELEGRAM_CHAT_ID,
+                text=message,
+                parse_mode="Markdown"
+            )
+            logger.info(f"Hourly heartbeat sent at {timestamp}")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Failed to send hourly heartbeat: {e}")
+
+
 async def process_notification_queue(application):
     """Process notifications from the queue in the bot's event loop"""
     while True:
@@ -301,6 +359,7 @@ async def run_bot():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("resume", resume_command))
+    application.add_handler(CommandHandler("me", me_command))
 
     # Handle unknown commands
     application.add_handler(MessageHandler(filters.COMMAND, unknown_command))
@@ -314,8 +373,21 @@ async def run_bot():
     await application.initialize()
     await application.start()
 
-    # Start queue processor task
+    # Send startup notification
+    try:
+        startup_msg = "🟢 Bot is online and ready to receive commands"
+        await application.bot.send_message(
+            chat_id=TELEGRAM_CHAT_ID,
+            text=startup_msg,
+            parse_mode="Markdown"
+        )
+        logger.info("Startup notification sent")
+    except Exception as e:
+        logger.error(f"Failed to send startup notification: {e}")
+
+    # Start background tasks
     queue_task = asyncio.create_task(process_notification_queue(application))
+    heartbeat_task = asyncio.create_task(hourly_heartbeat(application))
 
     if application.updater:
         await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
@@ -329,6 +401,7 @@ async def run_bot():
     except asyncio.CancelledError:
         logger.info("Bot shutting down")
         queue_task.cancel()
+        heartbeat_task.cancel()
         await application.stop()
         await application.shutdown()
 
