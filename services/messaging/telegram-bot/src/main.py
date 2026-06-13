@@ -46,6 +46,9 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 API_PORT = int(os.getenv("API_PORT", "9999"))
 
+# Global bot application (set when bot starts)
+bot_app = None
+
 
 # Pydantic models for API
 class NotificationRequest(BaseModel):
@@ -221,11 +224,24 @@ async def send_notification(notification: NotificationRequest):
         if notification.service:
             formatted_message += f"\n\n_From: {notification.service}_"
 
-        # Send via bot (requires running bot with proper context)
-        # For now, log it
-        logger.info(f"Would send: {formatted_message}")
+        # Send via bot if running
+        message_id = None
+        if bot_app and bot_app.bot:
+            try:
+                msg = await bot_app.bot.send_message(
+                    chat_id=chat_id,
+                    text=formatted_message,
+                    parse_mode="Markdown"
+                )
+                message_id = msg.message_id
+                logger.info(f"Notification sent (message_id={message_id})")
+            except Exception as send_error:
+                logger.error(f"Failed to send Telegram message: {send_error}")
+                raise
+        else:
+            logger.warning("Bot not ready yet, queuing notification")
 
-        return {"status": "queued", "message_id": None, "service": notification.service}
+        return {"status": "sent" if message_id else "queued", "message_id": message_id, "service": notification.service}
 
     except Exception as e:
         logger.error(f"Failed to send notification: {e}")
@@ -252,6 +268,7 @@ async def get_commands():
 
 async def run_bot():
     """Run the Telegram bot"""
+    global bot_app
     logger.info("Starting Telegram bot...")
 
     if not TELEGRAM_TOKEN:
@@ -260,6 +277,7 @@ async def run_bot():
 
     # Create bot application
     application = Application.builder().token(TELEGRAM_TOKEN).build()
+    bot_app = application
 
     # Add command handlers
     application.add_handler(CommandHandler("start", start))
