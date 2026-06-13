@@ -370,6 +370,10 @@ spec:
                 value: {{ $value | quote }}
               {{- end }}
             {{- end }}
+            {{- if .Values.envFrom }}
+            envFrom:
+              {{- toYaml .Values.envFrom | nindent 14 }}
+            {{- end }}
             resources:
               {{- toYaml .Values.resources | nindent 14 }}
             {{- if or .Values.configMap.enabled .Values.secret.enabled .Values.persistence.enabled }}
