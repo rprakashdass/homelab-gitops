@@ -92,6 +92,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 *Implemented:*
 • /help - Show this help message
 • /me - Show bot info and status
+• /k8s-report - Get cluster health report
 • /resume - Get your resume/CV (latest version)
 
 *Features:*
@@ -196,6 +197,71 @@ async def me_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 Use /help for more commands.
 """
     await update.message.reply_text(info_text, parse_mode="Markdown")
+
+
+async def k8s_report_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /k8s-report command - show cluster health report"""
+    if not update.message:
+        return
+
+    import subprocess
+    from datetime import datetime, timezone
+
+    logger.info("Cluster health report requested")
+
+    try:
+        await update.message.reply_text("📊 Generating cluster health report...")
+
+        # Get cluster info
+        report_lines = ["*📊 Kubernetes Cluster Health Report*\n"]
+        report_lines.append(f"_Generated: {datetime.now(timezone.utc).isoformat()}_\n")
+
+        # Node status
+        try:
+            nodes = subprocess.check_output(
+                ["kubectl", "get", "nodes", "-o", "wide"],
+                text=True,
+                timeout=5
+            )
+            report_lines.append("*Nodes:*")
+            report_lines.append(f"```\n{nodes}\n```\n")
+        except Exception as e:
+            report_lines.append(f"_Node info unavailable: {e}_\n")
+
+        # Pod status in home namespace
+        try:
+            pods = subprocess.check_output(
+                ["kubectl", "get", "pods", "-n", "home", "-o", "wide"],
+                text=True,
+                timeout=5
+            )
+            report_lines.append("*Pods (home namespace):*")
+            report_lines.append(f"```\n{pods}\n```\n")
+        except Exception as e:
+            report_lines.append(f"_Pod info unavailable: {e}_\n")
+
+        # Failed pods
+        try:
+            failed = subprocess.check_output(
+                ["kubectl", "get", "pods", "--all-namespaces", "--field-selector=status.phase!=Running,status.phase!=Succeeded"],
+                text=True,
+                timeout=5
+            )
+            if failed.strip():
+                report_lines.append("*⚠️ Failed/Pending Pods:*")
+                report_lines.append(f"```\n{failed}\n```\n")
+        except Exception as e:
+            logger.warning(f"Failed to get failed pods: {e}")
+
+        report_text = "\n".join(report_lines[:50])  # Limit to avoid message size issues
+        await update.message.reply_text(report_text, parse_mode="Markdown")
+
+    except Exception as e:
+        logger.error(f"Failed to generate report: {e}")
+        await update.message.reply_text(
+            f"❌ Failed to generate report: {e}",
+            parse_mode="Markdown"
+        )
 
 
 async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -360,6 +426,7 @@ async def run_bot():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("resume", resume_command))
     application.add_handler(CommandHandler("me", me_command))
+    application.add_handler(CommandHandler("k8s_report", k8s_report_command))
 
     # Handle unknown commands
     application.add_handler(MessageHandler(filters.COMMAND, unknown_command))

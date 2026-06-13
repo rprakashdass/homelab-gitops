@@ -15,6 +15,11 @@ base-chart:
   env:
     API_PORT: "9999"
     LOG_LEVEL: "INFO"
+    TELEGRAM_BOT_HOST: "telegram-bot"
+    TELEGRAM_BOT_PORT: "9999"
+    TELEGRAM_BOT_URL: "http://telegram-bot:9999"
+    TELEGRAM_BOT_NOTIFY_ENDPOINT: "http://telegram-bot:9999/api/notify"
+    TELEGRAM_BOT_HEALTH_ENDPOINT: "http://telegram-bot:9999/health"
 
   # Reference the telegram-bot-secrets created in infrastructure/security/secrets/
   envFrom:
