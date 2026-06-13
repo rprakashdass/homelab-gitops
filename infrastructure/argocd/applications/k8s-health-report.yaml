@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: home-k8s-health-report
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: home-k8s-health-report
+    app.kubernetes.io/component: argocd-application
+    app.kubernetes.io/part-of: home-automation-platform
+  annotations:
+    app.kubernetes.io/description: "Weekly Kubernetes cluster health report"
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: home
+
+  source:
+    repoURL: https://github.com/rprakashdass/homelab-gitops.git
+    targetRevision: main
+    path: charts/k8s-health-report
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: home
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

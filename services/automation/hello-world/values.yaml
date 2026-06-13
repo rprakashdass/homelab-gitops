@@ -1,0 +1,40 @@
+# Hello World Chart Values
+# Daily heartbeat logger that sends health checks
+
+base-chart:
+  kind: cronjob
+  schedule: "0 7 * * *"  # Daily at 07:00 UTC
+  namespace: home
+
+  # Auto-updated by CI with git-sha tag
+  image:
+    repository: ghcr.io/rprakashdass/hello-world
+    tag: abc1234def5678  # ← CI updates this automatically
+
+  # Environment variables from ConfigMap (telegram-bot connection)
+  envFrom:
+    - configMapRef:
+        name: telegram-configmap
+
+  # Add --telegram flag to send heartbeat to telegram-bot
+  command: ["python", "app.py"]
+  args:
+    - --format
+    - text
+    - --telegram
+    # Uncomment to send to webhook:
+    # - --webhook
+    # - https://my-webhook-service.example.com/api/heartbeat
+
+  resources:
+    limits:
+      cpu: 100m
+      memory: 64Mi
+    requests:
+      cpu: 50m
+      memory: 32Mi
+
+  # CronJob settings
+  job:
+    backoffLimit: 1
+    ttlSecondsAfterFinished: 86400  # keep for 24 hours

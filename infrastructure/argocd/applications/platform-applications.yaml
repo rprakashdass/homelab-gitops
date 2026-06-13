@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-applications
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: platform-applications
+    app.kubernetes.io/component: argocd-application
+    app.kubernetes.io/part-of: home-automation-platform
+  annotations:
+    app.kubernetes.io/description: "Apps of Apps — Central management of all platform applications"
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: home
+
+  # This application generates all other applications from the Helm chart
+  source:
+    repoURL: https://github.com/rprakashdass/homelab-gitops.git
+    targetRevision: main
+    path: platform/applications-chart
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd  # Applications are deployed to argocd namespace
+
+  syncPolicy:
+    automated:
+      prune: true      # Remove Applications if disabled in values.yaml
+      selfHeal: true   # Revert manual changes to Applications
+    syncOptions:
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

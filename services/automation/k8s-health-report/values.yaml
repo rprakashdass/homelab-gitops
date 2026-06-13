@@ -1,0 +1,82 @@
+# Kubernetes Health Report Chart Values
+# Weekly cluster health report
+
+base-chart:
+  kind: cronjob
+  schedule: "0 6 * * 0"  # Weekly at 06:00 UTC on Sunday
+  namespace: home
+
+  image:
+    repository: bitnami/kubectl
+    tag: "latest"
+
+  # Run cluster health check script
+  command: ["/bin/bash"]
+  args:
+    - -c
+    - |
+      echo "=== Kubernetes Cluster Health Report ==="
+      echo "Generated at: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+      echo ""
+
+      echo "## Node Status"
+      kubectl get nodes -o wide
+      echo ""
+
+      echo "## Pods in home namespace"
+      kubectl get pods -n home -o wide
+      echo ""
+
+      echo "## Failed pods (all namespaces)"
+      kubectl get pods --all-namespaces --field-selector=status.phase!=Running,status.phase!=Succeeded
+      echo ""
+
+      echo "## PVCs"
+      kubectl get pvc -n home
+      echo ""
+
+      echo "## Ingresses"
+      kubectl get ingress -n home
+      echo ""
+
+      echo "## System Information"
+      echo "Kubernetes Version: $(kubectl version --short 2>/dev/null | grep Server || echo 'N/A')"
+      echo "Node count: $(kubectl get nodes --no-headers | wc -l)"
+      echo "Pod count (home): $(kubectl get pods -n home --no-headers | wc -l)"
+      echo ""
+      echo "Report complete."
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 64Mi
+
+  # RBAC: allow reading cluster resources
+  serviceAccount:
+    create: true
+
+  rbac:
+    create: true
+    rules:
+      - apiGroups: [""]
+        resources: ["nodes", "pods", "persistentvolumeclaims"]
+        verbs: ["get", "list"]
+      - apiGroups: [""]
+        resources: ["pods/log"]
+        verbs: ["get"]
+      - apiGroups: ["apps"]
+        resources: ["deployments", "statefulsets", "daemonsets"]
+        verbs: ["get", "list"]
+      - apiGroups: ["networking.k8s.io"]
+        resources: ["ingresses"]
+        verbs: ["get", "list"]
+      - apiGroups: ["batch"]
+        resources: ["cronjobs", "jobs"]
+        verbs: ["get", "list"]
+
+  job:
+    backoffLimit: 1
+    ttlSecondsAfterFinished: 604800  # keep for 7 days

@@ -1,0 +1,50 @@
+{{- range $name, $app := .Values.applications }}
+{{- if $app.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: home-{{ $name }}
+  namespace: {{ .Values.argocdNamespace }}
+  labels:
+    app.kubernetes.io/name: home-{{ $name }}
+    app.kubernetes.io/component: argocd-application
+    app.kubernetes.io/part-of: home-automation-platform
+  annotations:
+    app.kubernetes.io/description: {{ $app.description | quote }}
+    argocd.argoproj.io/sync-wave: {{ $app.syncWave | quote }}
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: {{ .Values.argocdProject }}
+
+  source:
+    repoURL: {{ .Values.repository.url }}
+    targetRevision: {{ .Values.repository.branch }}
+    path: {{ $app.path }}
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.deploymentNamespace }}
+
+  syncPolicy:
+    {{- if .Values.syncPolicy.automated }}
+    automated:
+      prune: {{ .Values.syncPolicy.automated.prune }}
+      selfHeal: {{ .Values.syncPolicy.automated.selfHeal }}
+    {{- end }}
+    {{- if .Values.syncPolicy.syncOptions }}
+    syncOptions:
+      {{- toYaml .Values.syncPolicy.syncOptions | nindent 6 }}
+    {{- end }}
+    {{- if .Values.syncPolicy.retry }}
+    retry:
+      limit: {{ .Values.syncPolicy.retry.limit }}
+      backoff:
+        duration: {{ .Values.syncPolicy.retry.backoff.duration }}
+        factor: {{ .Values.syncPolicy.retry.backoff.factor }}
+        maxDuration: {{ .Values.syncPolicy.retry.backoff.maxDuration }}
+    {{- end }}
+
+---
+{{- end }}
+{{- end }}

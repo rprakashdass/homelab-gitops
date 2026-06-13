@@ -1,0 +1,112 @@
+# MinIO S3-compatible object storage
+# Helm chart: bitnami/minio
+
+base-chart:
+  kind: deployment
+  replicaCount: 1
+
+  image:
+    repository: bitnami/minio
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  # MinIO configuration
+  env:
+    - name: MINIO_ROOT_USER
+      value: "minio"
+    - name: MINIO_ROOT_PASSWORD
+      value: "minio12345"
+    - name: MINIO_SERVER_URL
+      value: "http://minio.home:9000"
+    - name: MINIO_BROWSER_REDIRECT_URL
+      value: "http://minio-console.home"
+
+  # Container ports
+  ports:
+    - containerPort: 9000
+      name: api
+    - containerPort: 9001
+      name: console
+
+  # Service
+  service:
+    enabled: true
+    type: ClusterIP
+    ports:
+      - port: 9000
+        targetPort: 9000
+        name: api
+      - port: 9001
+        targetPort: 9001
+        name: console
+
+  # Ingress — Traefik for API and Console
+  ingress:
+    enabled: true
+    className: traefik
+    annotations:
+      traefik.ingress.kubernetes.io/router.entrypoints: "web"
+      traefik.ingress.kubernetes.io/router.middlewares: "kube-system-stripprefix@kubernetescrd"
+    hosts:
+      # API endpoint
+      - host: minio.home
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 9000
+      # Console endpoint
+      - host: minio-console.home
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 9001
+
+  # Storage
+  persistence:
+    enabled: true
+    size: 5Gi
+    mountPath: /data
+
+  # Resource constraints
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "258Mi"
+      cpu: "200m"
+
+  # Health checks
+  livenessProbe:
+    httpGet:
+      path: /minio/health/live
+      port: 9000
+    initialDelaySeconds: 10
+    periodSeconds: 30
+
+  readinessProbe:
+    httpGet:
+      path: /minio/health/ready
+      port: 9000
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+  # Security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    fsReadOnlyRootFilesystem: false
+    allowPrivilegeEscalation: false
+
+  # Labels and annotations
+  labels:
+    domain: storage
+    service-type: s3
+
+  annotations:
+    description: "MinIO S3-compatible object storage for homelab"
+
+  # Service account for RBAC
+  serviceAccount:
+    create: true
+    annotations: {}

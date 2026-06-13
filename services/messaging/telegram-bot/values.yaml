@@ -1,0 +1,78 @@
+# Telegram Bot Chart Values
+# Centralized Telegram bot for messaging and notifications
+
+base-chart:
+  kind: deployment
+  replicaCount: 1
+  namespace: home
+
+  image:
+    repository: ghcr.io/rprakashdass/telegram-bot
+    tag: abc1234def5678  # ← CI auto-updates this
+    pullPolicy: IfNotPresent
+
+  # Container port for API
+  containerPort: 9999
+
+  # Environment variables
+  env:
+    - name: API_PORT
+      value: "9999"
+    - name: LOG_LEVEL
+      value: "INFO"
+
+  # Secrets from Kubernetes Secret
+  # Must be created separately: kubectl create secret generic telegram-bot-secrets ...
+  envFrom:
+    - secretRef:
+        name: telegram-bot-secrets
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Service: expose the API
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 9999
+    targetPort: 9999
+
+  # Health check
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 9999
+    initialDelaySeconds: 10
+    periodSeconds: 30
+
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 9999
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+  # Security
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsReadOnlyRootFilesystem: false  # Allow write for logs
+    allowPrivilegeEscalation: false
+
+  # Labels and annotations
+  labels:
+    domain: messaging
+    service-type: bot
+
+  annotations:
+    description: "Centralized Telegram bot for homelab"
+
+  # Service account for RBAC (if needed)
+  serviceAccount:
+    create: true
+    annotations: {}
