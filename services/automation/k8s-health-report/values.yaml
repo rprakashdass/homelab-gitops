@@ -24,7 +24,7 @@ base-chart:
     - |
       set -e
 
-      REPORT=$(cat <<'EOF'
+      REPORT=$(cat <<EOF
       === Kubernetes Cluster Health Report ===
       Generated at: $(date -u +'%Y-%m-%d %H:%M:%S UTC')
 
