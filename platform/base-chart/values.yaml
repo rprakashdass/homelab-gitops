@@ -166,17 +166,20 @@ lifecycle:
   #   exec:
   #     command: ["/bin/sh", "-c", "echo started"]
 
-# Enable/disable probes
+# Enable/disable probes (configurable paths, defaults to /health)
 probes:
   liveness:
     enabled: false
+    path: /health  # HTTP GET path for liveness check
     initialDelaySeconds: 30
     periodSeconds: 10
   readiness:
     enabled: false
+    path: /health  # HTTP GET path for readiness check (default /health, override if needed)
     initialDelaySeconds: 5
     periodSeconds: 5
   startup:
     enabled: false
+    path: /health  # HTTP GET path for startup check
     initialDelaySeconds: 0
     periodSeconds: 10

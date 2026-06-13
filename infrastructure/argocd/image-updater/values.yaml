@@ -1,0 +1,36 @@
+serviceAccount:
+  create: true
+  name: argocd-image-updater
+
+rbac:
+  enabled: true
+
+image:
+  repository: quay.io/argoprojlabs/argocd-image-updater
+  tag: v0.15.2
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+config:
+  log.level: info
+  kube.events: "false"
+  argocd.server_addr: argocd-server.argocd
+  argocd.namespace: argocd
+  argocd.insecure: "false"
+  argocd.plaintext: "false"
+  argocd.grpc_web: "false"
+  git.user: argocd-image-updater
+  git.email: argocd-image-updater@example.com
+  registries.ghcr.api_url: https://ghcr.io
+  registries.ghcr.ping: "yes"
+  registries.ghcr.insecure: "no"
+  registries.ghcr.credentials: secret:argocd-image-updater/ghcr-creds

@@ -131,7 +131,7 @@ class Heartbeat:
         - TELEGRAM_BOT_PORT: port of telegram-bot service
 
         Returns:
-            True if successful, False otherwise
+            True if successful, False otherwise.
         """
         if not requests:
             print(

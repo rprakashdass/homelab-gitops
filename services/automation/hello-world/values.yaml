@@ -8,7 +8,7 @@ base-chart:
 
   image:
     repository: ghcr.io/rprakashdass/hello-world
-    tag: abc1234def5678  # ← CI updates this automatically
+    tag: latest  # ← CI pushes when src/ changes
 
   # Add --telegram flag to send heartbeat to telegram-bot
   command: ["python", "app.py"]

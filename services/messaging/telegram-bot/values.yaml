@@ -8,12 +8,17 @@ base-chart:
 
   image:
     repository: ghcr.io/rprakashdass/telegram-bot
-    tag: abc1234def5678  # ← CI auto-updates this
-    pullPolicy: IfNotPresent
+    tag: latest # ← pushed by CI when src/ changes
+    pullPolicy: Always # Always pull latest tag to get fresh image
 
   env:
     API_PORT: "9999"
     LOG_LEVEL: "INFO"
+
+  # Reference the telegram-bot-secrets created in infrastructure/security/secrets/
+  envFrom:
+    - secretRef:
+        name: telegram-bot-secrets
 
   service:
     enabled: true
@@ -24,10 +29,12 @@ base-chart:
   probes:
     liveness:
       enabled: true
+      path: /health
       initialDelaySeconds: 10
       periodSeconds: 30
     readiness:
       enabled: true
+      path: /health
       initialDelaySeconds: 5
       periodSeconds: 10
     startup:
@@ -64,10 +71,3 @@ base-chart:
   serviceAccount:
     create: true
     annotations: {}
-
-# NOTE: envFrom is not supported by base-chart template.
-# To use secrets, create the Secret separately:
-#   kubectl create secret generic telegram-bot-secrets \
-#     -n home \
-#     --from-literal=TELEGRAM_BOT_TOKEN=<token>
-# Then inject via env vars or add support in base-chart template

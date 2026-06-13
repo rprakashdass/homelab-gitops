@@ -2,7 +2,6 @@
 # Repository: https://charts.min.io/
 # Chart: minio
 # Version: 5.*
-# Note: chart provides defaults for image, so we only override what we need
 
 mode: standalone
 
@@ -12,31 +11,43 @@ rootPassword: minio12345
 
 replicas: 1
 
+# MinIO API Service & Ingress
 service:
   type: ClusterIP
   port: 9000
-  consolePort: 9001
 
 ingress:
   enabled: true
   ingressClassName: traefik
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: web
+  path: /
   hosts:
-    - host: minio.home
-      paths:
-        - path: /
-          pathType: Prefix
-    - host: minio-console.home
-      paths:
-        - path: /
-          pathType: Prefix
+    - minio.home
+  tls: []
 
+# MinIO Console Service & Ingress
+consoleService:
+  type: ClusterIP
+  port: "9001"
+
+consoleIngress:
+  enabled: true
+  ingressClassName: traefik
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+  path: /
+  hosts:
+    - minio-console.home
+  tls: []
+
+# Persistence
 persistence:
   enabled: true
   storageClass: local-path
   size: 5Gi
 
+# Resource limits
 resources:
   requests:
     cpu: 100m

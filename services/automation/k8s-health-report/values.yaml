@@ -10,41 +10,63 @@ base-chart:
     repository: bitnami/kubectl
     tag: "latest"
 
-  # Run cluster health check script
+  # Reference telegram-bot configuration
+  envFrom:
+    - configMapRef:
+        name: telegram-configmap
+
+  # Run cluster health check script and send to telegram-bot
   command: ["/bin/bash"]
   args:
     - -c
     - |
-      echo "=== Kubernetes Cluster Health Report ==="
-      echo "Generated at: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-      echo ""
+      set -e
 
-      echo "## Node Status"
-      kubectl get nodes -o wide
-      echo ""
+      REPORT=$(cat <<'EOF'
+      === Kubernetes Cluster Health Report ===
+      Generated at: $(date -u +'%Y-%m-%d %H:%M:%S UTC')
 
-      echo "## Pods in home namespace"
-      kubectl get pods -n home -o wide
-      echo ""
+      ## Node Status
+      $(kubectl get nodes -o wide)
 
-      echo "## Failed pods (all namespaces)"
-      kubectl get pods --all-namespaces --field-selector=status.phase!=Running,status.phase!=Succeeded
-      echo ""
+      ## Pods in home namespace
+      $(kubectl get pods -n home -o wide)
 
-      echo "## PVCs"
-      kubectl get pvc -n home
-      echo ""
+      ## Failed pods (all namespaces)
+      $(kubectl get pods --all-namespaces --field-selector=status.phase!=Running,status.phase!=Succeeded 2>/dev/null || echo "None")
 
-      echo "## Ingresses"
-      kubectl get ingress -n home
-      echo ""
+      ## PVCs
+      $(kubectl get pvc -n home)
 
-      echo "## System Information"
-      echo "Kubernetes Version: $(kubectl version --short 2>/dev/null | grep Server || echo 'N/A')"
-      echo "Node count: $(kubectl get nodes --no-headers | wc -l)"
-      echo "Pod count (home): $(kubectl get pods -n home --no-headers | wc -l)"
-      echo ""
-      echo "Report complete."
+      ## Ingresses
+      $(kubectl get ingress -n home)
+
+      ## System Information
+      Kubernetes Version: $(kubectl version --short 2>/dev/null | grep Server || echo 'N/A')
+      Node count: $(kubectl get nodes --no-headers | wc -l)
+      Pod count (home): $(kubectl get pods -n home --no-headers | wc -l)
+
+      Report complete.
+      EOF
+      )
+
+      echo "$REPORT"
+
+      # Send report to telegram-bot
+      if [ -n "$TELEGRAM_BOT_HOST" ] && [ -n "$TELEGRAM_BOT_PORT" ]; then
+        REPORT_JSON=$(cat <<EOF
+      {
+        "title": "📊 Weekly Kubernetes Health Report",
+        "message": "\`\`\`\n$REPORT\n\`\`\`",
+        "service": "k8s-health-report"
+      }
+      EOF
+        )
+
+        curl -s -X POST "http://$TELEGRAM_BOT_HOST:$TELEGRAM_BOT_PORT/api/notify" \
+          -H "Content-Type: application/json" \
+          -d "$REPORT_JSON" || echo "[WARNING] Failed to send telegram notification"
+      fi
 
   resources:
     limits:

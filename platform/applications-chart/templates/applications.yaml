@@ -1,7 +1,7 @@
 {{- $gitRepo := "https://github.com/rprakashdass/homelab-gitops.git" }}
 {{- $gitBranch := "main" }}
 {{- $argocdNamespace := "argocd" }}
-{{- $deployNamespace := "home" }}
+{{- $defaultDeployNamespace := "home" }}
 {{- $project := "home" }}
 
 {{- range $name, $app := .Values.applications }}
@@ -44,7 +44,7 @@ spec:
 
   destination:
     server: https://kubernetes.default.svc
-    namespace: {{ $deployNamespace }}
+    namespace: {{ $app.namespace | default $defaultDeployNamespace }}
 
   syncPolicy:
     automated:
