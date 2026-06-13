@@ -62,7 +62,12 @@ spec:
         env:
           {{- range $key, $value := .Values.env }}
           - name: {{ $key }}
+            {{- if kindIs "string" $value }}
             value: {{ $value | quote }}
+            {{- else }}
+            valueFrom:
+              {{- toYaml $value | nindent 14 }}
+            {{- end }}
           {{- end }}
         {{- end }}
         {{- if .Values.envFrom }}
@@ -216,7 +221,12 @@ spec:
         env:
           {{- range $key, $value := .Values.env }}
           - name: {{ $key }}
+            {{- if kindIs "string" $value }}
             value: {{ $value | quote }}
+            {{- else }}
+            valueFrom:
+              {{- toYaml $value | nindent 14 }}
+            {{- end }}
           {{- end }}
         {{- end }}
         {{- if .Values.envFrom }}
@@ -367,7 +377,12 @@ spec:
             env:
               {{- range $key, $value := .Values.env }}
               - name: {{ $key }}
+                {{- if kindIs "string" $value }}
                 value: {{ $value | quote }}
+                {{- else }}
+                valueFrom:
+                  {{- toYaml $value | nindent 18 }}
+                {{- end }}
               {{- end }}
             {{- end }}
             {{- if .Values.envFrom }}
@@ -481,7 +496,12 @@ spec:
         env:
           {{- range $key, $value := .Values.env }}
           - name: {{ $key }}
+            {{- if kindIs "string" $value }}
             value: {{ $value | quote }}
+            {{- else }}
+            valueFrom:
+              {{- toYaml $value | nindent 14 }}
+            {{- end }}
           {{- end }}
         {{- end }}
         resources:

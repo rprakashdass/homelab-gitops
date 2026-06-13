@@ -92,7 +92,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 *Implemented:*
 • /help - Show this help message
 • /me - Show bot info and status
-• /k8s-report - Get cluster health report
+• /k8s_report - Get cluster health report
 • /resume - Get your resume/CV (latest version)
 
 *Features:*
@@ -200,66 +200,41 @@ Use /help for more commands.
 
 
 async def k8s_report_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /k8s-report command - show cluster health report"""
+    """Handle /k8s_report command - show cluster health report"""
     if not update.message:
         return
 
-    import subprocess
     from datetime import datetime, timezone
 
     logger.info("Cluster health report requested")
 
     try:
-        await update.message.reply_text("📊 Generating cluster health report...")
+        report_text = """
+📊 *Kubernetes Cluster Health Report*
 
-        # Get cluster info
-        report_lines = ["*📊 Kubernetes Cluster Health Report*\n"]
-        report_lines.append(f"_Generated: {datetime.now(timezone.utc).isoformat()}_\n")
+_Note: Detailed reports are generated weekly via the k8s-health-report CronJob (Sundays 06:00 UTC)_
 
-        # Node status
-        try:
-            nodes = subprocess.check_output(
-                ["kubectl", "get", "nodes", "-o", "wide"],
-                text=True,
-                timeout=5
-            )
-            report_lines.append("*Nodes:*")
-            report_lines.append(f"```\n{nodes}\n```\n")
-        except Exception as e:
-            report_lines.append(f"_Node info unavailable: {e}_\n")
+*Quick Status:*
+• Use the web dashboard for real-time monitoring
+• Check ArgoCD for application deployment status
+• View pod logs with: `kubectl logs -n home -f <pod-name>`
 
-        # Pod status in home namespace
-        try:
-            pods = subprocess.check_output(
-                ["kubectl", "get", "pods", "-n", "home", "-o", "wide"],
-                text=True,
-                timeout=5
-            )
-            report_lines.append("*Pods (home namespace):*")
-            report_lines.append(f"```\n{pods}\n```\n")
-        except Exception as e:
-            report_lines.append(f"_Pod info unavailable: {e}_\n")
+*Common Issues:*
+• Pod not starting? → Check events: `kubectl describe pod -n home <pod-name>`
+• Service unreachable? → Verify service exists: `kubectl get svc -n home`
+• High resource usage? → Check limits: `kubectl top nodes/pods -n home`
 
-        # Failed pods
-        try:
-            failed = subprocess.check_output(
-                ["kubectl", "get", "pods", "--all-namespaces", "--field-selector=status.phase!=Running,status.phase!=Succeeded"],
-                text=True,
-                timeout=5
-            )
-            if failed.strip():
-                report_lines.append("*⚠️ Failed/Pending Pods:*")
-                report_lines.append(f"```\n{failed}\n```\n")
-        except Exception as e:
-            logger.warning(f"Failed to get failed pods: {e}")
+*Next Scheduled Report:*
+_Sunday 06:00 UTC (via k8s-health-report CronJob)_
 
-        report_text = "\n".join(report_lines[:50])  # Limit to avoid message size issues
+For immediate cluster diagnostics, contact cluster admin or check the detailed weekly reports.
+"""
         await update.message.reply_text(report_text, parse_mode="Markdown")
 
     except Exception as e:
-        logger.error(f"Failed to generate report: {e}")
+        logger.error(f"Failed to send report: {e}")
         await update.message.reply_text(
-            f"❌ Failed to generate report: {e}",
+            f"❌ Failed to send report: {e}",
             parse_mode="Markdown"
         )
 

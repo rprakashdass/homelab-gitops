@@ -16,6 +16,12 @@ base-chart:
     TELEGRAM_BOT_URL: "http://telegram-bot:9999"
     TELEGRAM_BOT_NOTIFY_ENDPOINT: "http://telegram-bot:9999/api/notify"
     TELEGRAM_BOT_HEALTH_ENDPOINT: "http://telegram-bot:9999/health"
+    POD_NAMESPACE:
+      fieldRef:
+        fieldPath: metadata.namespace
+    NODE_NAME:
+      fieldRef:
+        fieldPath: spec.nodeName
 
   # Add --telegram flag to send heartbeat to telegram-bot
   command: ["python", "app.py"]
@@ -23,10 +29,6 @@ base-chart:
     - --format
     - text
     - --telegram
-
-  envFrom:
-    - configMapRef:
-        name: telegram-configmap
 
   resources:
     limits:

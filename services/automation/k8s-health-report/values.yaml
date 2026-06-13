@@ -17,11 +17,6 @@ base-chart:
     TELEGRAM_BOT_NOTIFY_ENDPOINT: "http://telegram-bot:9999/api/notify"
     TELEGRAM_BOT_HEALTH_ENDPOINT: "http://telegram-bot:9999/health"
 
-  # Reference telegram-bot configuration
-  envFrom:
-    - configMapRef:
-        name: telegram-configmap
-
   # Run cluster health check script and send to telegram-bot
   command: ["/bin/bash"]
   args:
@@ -59,16 +54,19 @@ base-chart:
 
       echo "$REPORT"
 
-      # Send report to telegram-bot
+      # Send report to telegram-bot with proper JSON escaping
       if [ -n "$TELEGRAM_BOT_HOST" ] && [ -n "$TELEGRAM_BOT_PORT" ]; then
-        REPORT_JSON=$(cat <<EOF
-      {
-        "title": "📊 Weekly Kubernetes Health Report",
-        "message": "\`\`\`\n$REPORT\n\`\`\`",
-        "service": "k8s-health-report"
-      }
-      EOF
-        )
+        if command -v jq &> /dev/null; then
+          # Use jq for safe JSON encoding
+          REPORT_JSON=$(echo "$REPORT" | jq -Rs \
+            --arg title "📊 Weekly Kubernetes Health Report" \
+            --arg service "k8s-health-report" \
+            '{title: $title, message: "```\n" + . + "\n```", service: $service}')
+        else
+          # Fallback: manual escaping
+          REPORT_ESCAPED=$(echo "$REPORT" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed 's/$/\\n/' | tr -d '\n')
+          REPORT_JSON="{\"title\":\"📊 Weekly Kubernetes Health Report\",\"message\":\"${REPORT_ESCAPED}\",\"service\":\"k8s-health-report\"}"
+        fi
 
         curl -s -X POST "http://$TELEGRAM_BOT_HOST:$TELEGRAM_BOT_PORT/api/notify" \
           -H "Content-Type: application/json" \
