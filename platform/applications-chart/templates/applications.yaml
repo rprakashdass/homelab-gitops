@@ -1,10 +1,16 @@
+{{- $repo := "https://github.com/rprakashdass/homelab-gitops.git" }}
+{{- $branch := "main" }}
+{{- $argocdNamespace := "argocd" }}
+{{- $deployNamespace := "home" }}
+{{- $project := "home" }}
+
 {{- range $name, $app := .Values.applications }}
 {{- if $app.enabled }}
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: home-{{ $name }}
-  namespace: {{ .Values.argocdNamespace | default "argocd" }}
+  namespace: {{ $argocdNamespace }}
   labels:
     app.kubernetes.io/name: home-{{ $name }}
     app.kubernetes.io/component: argocd-application
@@ -15,35 +21,30 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  project: {{ .Values.argocdProject | default "home" }}
+  project: {{ $project }}
 
   source:
-    repoURL: {{ .Values.repository.url }}
-    targetRevision: {{ .Values.repository.branch | default "main" }}
+    repoURL: {{ $repo }}
+    targetRevision: {{ $branch }}
     path: {{ $app.path }}
 
   destination:
     server: https://kubernetes.default.svc
-    namespace: {{ .Values.deploymentNamespace | default "home" }}
+    namespace: {{ $deployNamespace }}
 
   syncPolicy:
-    {{- if .Values.syncPolicy.automated }}
     automated:
-      prune: {{ .Values.syncPolicy.automated.prune }}
-      selfHeal: {{ .Values.syncPolicy.automated.selfHeal }}
-    {{- end }}
-    {{- if .Values.syncPolicy.syncOptions }}
+      prune: true
+      selfHeal: true
     syncOptions:
-      {{- toYaml .Values.syncPolicy.syncOptions | nindent 6 }}
-    {{- end }}
-    {{- if .Values.syncPolicy.retry }}
+      - CreateNamespace=true
+      - ServerSideApply=true
     retry:
-      limit: {{ .Values.syncPolicy.retry.limit }}
+      limit: 3
       backoff:
-        duration: {{ .Values.syncPolicy.retry.backoff.duration }}
-        factor: {{ .Values.syncPolicy.retry.backoff.factor }}
-        maxDuration: {{ .Values.syncPolicy.retry.backoff.maxDuration }}
-    {{- end }}
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
 
 ---
 {{- end }}
