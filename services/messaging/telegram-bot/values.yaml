@@ -4,6 +4,7 @@
 base-chart:
   kind: deployment
   replicaCount: 1
+  fullnameOverride: telegram-bot
   namespace: home
 
   image:
