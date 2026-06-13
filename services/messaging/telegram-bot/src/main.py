@@ -20,7 +20,6 @@ Notifications:
 import os
 import logging
 import asyncio
-import queue
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
@@ -47,8 +46,8 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 API_PORT = int(os.getenv("API_PORT", "9999"))
 
-# Queue for passing notifications from API to bot thread
-notification_queue = queue.Queue()
+# Global notification queue (will be set by bot thread)
+notification_queue = None
 
 
 # Pydantic models for API
@@ -226,12 +225,15 @@ async def send_notification(notification: NotificationRequest):
             formatted_message += f"\n\n_From: {notification.service}_"
 
         # Queue message for bot thread to send (avoids event loop issues)
+        if notification_queue is None:
+            raise HTTPException(status_code=503, detail="Bot not ready")
+
         notification_data = {
             "chat_id": chat_id,
             "text": formatted_message,
             "service": notification.service
         }
-        notification_queue.put(notification_data)
+        notification_queue.put_nowait(notification_data)
         logger.info(f"Notification queued for delivery")
 
         return {"status": "queued", "message_id": None, "service": notification.service}
@@ -263,8 +265,8 @@ async def process_notification_queue(application):
     """Process notifications from the queue in the bot's event loop"""
     while True:
         try:
-            # Non-blocking check for notifications (timeout after 1 second)
-            notification = notification_queue.get(timeout=1)
+            # Wait for notification (non-blocking in event loop)
+            notification = await notification_queue.get()
             try:
                 msg = await application.bot.send_message(
                     chat_id=notification["chat_id"],
@@ -274,20 +276,23 @@ async def process_notification_queue(application):
                 logger.info(f"Notification sent from {notification['service']} (message_id={msg.message_id})")
             except Exception as e:
                 logger.error(f"Failed to send notification from {notification['service']}: {e}")
-        except queue.Empty:
-            # Timeout, just continue
-            pass
+        except asyncio.CancelledError:
+            break
         except Exception as e:
             logger.error(f"Error processing notification queue: {e}")
 
 
 async def run_bot():
     """Run the Telegram bot"""
+    global notification_queue
     logger.info("Starting Telegram bot...")
 
     if not TELEGRAM_TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN environment variable is required")
         return
+
+    # Create notification queue in this event loop
+    notification_queue = asyncio.Queue()
 
     # Create bot application
     application = Application.builder().token(TELEGRAM_TOKEN).build()
