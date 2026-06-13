@@ -40,10 +40,16 @@ applications:
     path: services/automation/k8s-health-report
     syncWave: "1"
 
-  notion-monthly:
+  notion-automations:
     enabled: true
     description: "Monthly Notion workspace generation (placeholder)"
-    path: services/automation/notion-monthly
+    path: services/automation/notion-automations
+    syncWave: "1"
+
+  minio:
+    enabled: true
+    description: "MinIO S3-compatible object storage"
+    path: services/storage/minio
     syncWave: "1"
 
   # Planned automations (ready to enable when implemented)
@@ -96,6 +102,7 @@ syncPolicy:
     prune: true
     selfHeal: true
   syncOptions:
+    - CreateNamespace=true
     - ServerSideApply=true
   retry:
     limit: 3
