@@ -50,7 +50,7 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 API_PORT = int(os.getenv("API_PORT", "9999"))
 
 # Global notification queue (will be set by bot thread)
-notification_queue = None
+notification_queue: Optional[asyncio.Queue] = None
 
 
 # Pydantic models for API
@@ -335,6 +335,7 @@ async def send_notification(notification: NotificationRequest):
             "text": formatted_message,
             "service": notification.service
         }
+        assert notification_queue is not None
         notification_queue.put_nowait(notification_data)
         logger.info(f"Notification queued for delivery")
 
@@ -385,12 +386,12 @@ async def hourly_heartbeat(application):
             logger.error(f"Failed to send hourly heartbeat: {e}")
 
 
-async def process_notification_queue(application):
+async def process_notification_queue(application, queue: asyncio.Queue):
     """Process notifications from the queue in the bot's event loop"""
     while True:
         try:
             # Wait for notification (non-blocking in event loop)
-            notification = await notification_queue.get()
+            notification = await queue.get()
             try:
                 msg = await application.bot.send_message(
                     chat_id=notification["chat_id"],
@@ -453,7 +454,7 @@ async def run_bot():
         logger.error(f"Failed to send startup notification: {e}")
 
     # Start background tasks
-    queue_task = asyncio.create_task(process_notification_queue(application))
+    queue_task = asyncio.create_task(process_notification_queue(application, notification_queue))
     heartbeat_task = asyncio.create_task(hourly_heartbeat(application))
 
     if application.updater:
