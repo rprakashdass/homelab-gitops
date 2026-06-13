@@ -20,6 +20,7 @@ Notifications:
 import os
 import logging
 import asyncio
+import queue
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
@@ -46,8 +47,8 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 API_PORT = int(os.getenv("API_PORT", "9999"))
 
-# Global bot application (set when bot starts)
-bot_app = None
+# Queue for passing notifications from API to bot thread
+notification_queue = queue.Queue()
 
 
 # Pydantic models for API
@@ -224,27 +225,19 @@ async def send_notification(notification: NotificationRequest):
         if notification.service:
             formatted_message += f"\n\n_From: {notification.service}_"
 
-        # Send via bot if running
-        message_id = None
-        if bot_app and bot_app.bot:
-            try:
-                msg = await bot_app.bot.send_message(
-                    chat_id=chat_id,
-                    text=formatted_message,
-                    parse_mode="Markdown"
-                )
-                message_id = msg.message_id
-                logger.info(f"Notification sent (message_id={message_id})")
-            except Exception as send_error:
-                logger.error(f"Failed to send Telegram message: {send_error}")
-                raise
-        else:
-            logger.warning("Bot not ready yet, queuing notification")
+        # Queue message for bot thread to send (avoids event loop issues)
+        notification_data = {
+            "chat_id": chat_id,
+            "text": formatted_message,
+            "service": notification.service
+        }
+        notification_queue.put(notification_data)
+        logger.info(f"Notification queued for delivery")
 
-        return {"status": "sent" if message_id else "queued", "message_id": message_id, "service": notification.service}
+        return {"status": "queued", "message_id": None, "service": notification.service}
 
     except Exception as e:
-        logger.error(f"Failed to send notification: {e}")
+        logger.error(f"Failed to queue notification: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -266,9 +259,30 @@ async def get_commands():
     }
 
 
+async def process_notification_queue(application):
+    """Process notifications from the queue in the bot's event loop"""
+    while True:
+        try:
+            # Non-blocking check for notifications (timeout after 1 second)
+            notification = notification_queue.get(timeout=1)
+            try:
+                msg = await application.bot.send_message(
+                    chat_id=notification["chat_id"],
+                    text=notification["text"],
+                    parse_mode="Markdown"
+                )
+                logger.info(f"Notification sent from {notification['service']} (message_id={msg.message_id})")
+            except Exception as e:
+                logger.error(f"Failed to send notification from {notification['service']}: {e}")
+        except queue.Empty:
+            # Timeout, just continue
+            pass
+        except Exception as e:
+            logger.error(f"Error processing notification queue: {e}")
+
+
 async def run_bot():
     """Run the Telegram bot"""
-    global bot_app
     logger.info("Starting Telegram bot...")
 
     if not TELEGRAM_TOKEN:
@@ -277,7 +291,6 @@ async def run_bot():
 
     # Create bot application
     application = Application.builder().token(TELEGRAM_TOKEN).build()
-    bot_app = application
 
     # Add command handlers
     application.add_handler(CommandHandler("start", start))
@@ -296,28 +309,45 @@ async def run_bot():
     await application.initialize()
     await application.start()
 
+    # Start queue processor task
+    queue_task = asyncio.create_task(process_notification_queue(application))
+
     if application.updater:
         await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
         logger.info("Bot is running and polling for updates")
     else:
         logger.error("Failed to initialize bot updater")
 
-
-async def main():
-    """Main async entry point"""
-    # Run bot and API concurrently
-    bot_task = asyncio.create_task(run_bot())
-
-    # This will keep running indefinitely
-    await bot_task
+    # Keep running until interrupted
+    try:
+        await asyncio.Event().wait()
+    except asyncio.CancelledError:
+        logger.info("Bot shutting down")
+        queue_task.cancel()
+        await application.stop()
+        await application.shutdown()
 
 
 if __name__ == "__main__":
     import threading
+    import time
 
-    # Start bot in background thread
-    bot_thread = threading.Thread(target=lambda: asyncio.run(run_bot()), daemon=True)
+    # Run bot in background thread with its own event loop
+    def run_bot_thread():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(run_bot())
+        except KeyboardInterrupt:
+            pass
+        finally:
+            loop.close()
+
+    bot_thread = threading.Thread(target=run_bot_thread, daemon=True)
     bot_thread.start()
+
+    # Give bot thread time to initialize before starting API
+    time.sleep(2)
 
     # Start FastAPI server in main thread
     logger.info(f"Starting API server on port {API_PORT}")
