@@ -49,8 +49,13 @@ applications:
   minio:
     enabled: true
     description: "MinIO S3-compatible object storage"
-    path: services/storage/minio
-    syncWave: "1"
+    syncWave: "0"
+    useExternalChart: true
+    externalChart:
+      repoURL: https://charts.min.io/
+      chart: minio
+      targetRevision: 5.*
+      valueFile: platform/storage/minio/values.yaml
 
   # Planned automations (ready to enable when implemented)
   github-summary:

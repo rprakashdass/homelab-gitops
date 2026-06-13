@@ -1,0 +1,46 @@
+# MinIO Official Helm Chart Values
+# Repository: https://charts.min.io/
+# Chart: minio
+# Version: 5.*
+# Note: chart provides defaults for image, so we only override what we need
+
+mode: standalone
+
+# Root credentials
+rootUser: minio
+rootPassword: minio12345
+
+replicas: 1
+
+service:
+  type: ClusterIP
+  port: 9000
+  consolePort: 9001
+
+ingress:
+  enabled: true
+  ingressClassName: traefik
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+  hosts:
+    - host: minio.home
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: minio-console.home
+      paths:
+        - path: /
+          pathType: Prefix
+
+persistence:
+  enabled: true
+  storageClass: local-path
+  size: 5Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi

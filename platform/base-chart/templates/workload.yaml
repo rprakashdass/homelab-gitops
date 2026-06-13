@@ -38,14 +38,18 @@ spec:
       {{- if .Values.serviceAccount.create }}
       serviceAccountName: {{ include "base.serviceAccountName" . }}
       {{- end }}
+      {{- if .Values.securityContext }}
       securityContext:
         {{- toYaml .Values.securityContext | nindent 8 }}
+      {{- end }}
       containers:
       - name: {{ include "base.name" . }}
         image: {{ include "base.image" . }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.containerSecurityContext }}
         securityContext:
           {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+        {{- end }}
         {{- if .Values.command }}
         command:
           {{- toYaml .Values.command | nindent 12 }}
@@ -184,14 +188,18 @@ spec:
       {{- if .Values.serviceAccount.create }}
       serviceAccountName: {{ include "base.serviceAccountName" . }}
       {{- end }}
+      {{- if .Values.securityContext }}
       securityContext:
         {{- toYaml .Values.securityContext | nindent 8 }}
+      {{- end }}
       containers:
       - name: {{ include "base.name" . }}
         image: {{ include "base.image" . }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.containerSecurityContext }}
         securityContext:
           {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+        {{- end }}
         {{- if .Values.command }}
         command:
           {{- toYaml .Values.command | nindent 12 }}
@@ -329,8 +337,10 @@ spec:
           {{- if .Values.serviceAccount.create }}
           serviceAccountName: {{ include "base.serviceAccountName" . }}
           {{- end }}
+          {{- if .Values.securityContext }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- end }}
           containers:
           - name: {{ include "base.name" . }}
             image: {{ include "base.image" . }}
@@ -443,8 +453,10 @@ spec:
       - name: {{ include "base.name" . }}
         image: {{ include "base.image" . }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.containerSecurityContext }}
         securityContext:
           {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+        {{- end }}
         {{- if .Values.command }}
         command:
           {{- toYaml .Values.command | nindent 12 }}

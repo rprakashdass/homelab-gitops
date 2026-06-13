@@ -64,9 +64,9 @@ Create the name of the service account to use
 Image name
 */}}
 {{- define "base.image" -}}
-{{- if .Values.image.tag }}
-{{ .Values.image.repository }}:{{ .Values.image.tag }}
-{{- else }}
-{{ .Values.image.repository }}:{{ .Chart.AppVersion }}
-{{- end }}
+{{- if .Values.image.tag -}}
+{{- .Values.image.repository }}:{{ .Values.image.tag -}}
+{{- else -}}
+{{- .Values.image.repository }}:{{ .Chart.AppVersion -}}
+{{- end -}}
 {{- end }}

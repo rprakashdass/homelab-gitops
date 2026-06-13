@@ -74,14 +74,14 @@ securityContext:
   runAsUser: 1000
   runAsGroup: 3000
   fsGroup: 3000
-  capabilities:
-    drop:
-      - ALL
 
 # Container security context
 containerSecurityContext:
   allowPrivilegeEscalation: false
   readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
 
 # Service account
 serviceAccount:

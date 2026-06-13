@@ -11,21 +11,27 @@ base-chart:
     tag: abc1234def5678  # ← CI auto-updates this
     pullPolicy: IfNotPresent
 
-  # Container port for API
-  containerPort: 9999
-
-  # Environment variables
   env:
-    - name: API_PORT
-      value: "9999"
-    - name: LOG_LEVEL
-      value: "INFO"
+    API_PORT: "9999"
+    LOG_LEVEL: "INFO"
 
-  # Secrets from Kubernetes Secret
-  # Must be created separately: kubectl create secret generic telegram-bot-secrets ...
-  envFrom:
-    - secretRef:
-        name: telegram-bot-secrets
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 9999
+    targetPort: 9999
+
+  probes:
+    liveness:
+      enabled: true
+      initialDelaySeconds: 10
+      periodSeconds: 30
+    readiness:
+      enabled: true
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    startup:
+      enabled: false
 
   resources:
     requests:
@@ -35,44 +41,33 @@ base-chart:
       cpu: 500m
       memory: 512Mi
 
-  # Service: expose the API
-  service:
-    enabled: true
-    type: ClusterIP
-    port: 9999
-    targetPort: 9999
-
-  # Health check
-  livenessProbe:
-    httpGet:
-      path: /health
-      port: 9999
-    initialDelaySeconds: 10
-    periodSeconds: 30
-
-  readinessProbe:
-    httpGet:
-      path: /health
-      port: 9999
-    initialDelaySeconds: 5
-    periodSeconds: 10
-
-  # Security
   securityContext:
     runAsNonRoot: true
     runAsUser: 1000
-    fsReadOnlyRootFilesystem: false  # Allow write for logs
-    allowPrivilegeEscalation: false
+    runAsGroup: 3000
+    fsGroup: 3000
 
-  # Labels and annotations
-  labels:
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop:
+        - ALL
+
+  podLabels:
     domain: messaging
     service-type: bot
 
-  annotations:
+  podAnnotations:
     description: "Centralized Telegram bot for homelab"
 
-  # Service account for RBAC (if needed)
   serviceAccount:
     create: true
     annotations: {}
+
+# NOTE: envFrom is not supported by base-chart template.
+# To use secrets, create the Secret separately:
+#   kubectl create secret generic telegram-bot-secrets \
+#     -n home \
+#     --from-literal=TELEGRAM_BOT_TOKEN=<token>
+# Then inject via env vars or add support in base-chart template

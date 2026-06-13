@@ -6,15 +6,9 @@ base-chart:
   schedule: "0 7 * * *"  # Daily at 07:00 UTC
   namespace: home
 
-  # Auto-updated by CI with git-sha tag
   image:
     repository: ghcr.io/rprakashdass/hello-world
     tag: abc1234def5678  # ← CI updates this automatically
-
-  # Environment variables from ConfigMap (telegram-bot connection)
-  envFrom:
-    - configMapRef:
-        name: telegram-configmap
 
   # Add --telegram flag to send heartbeat to telegram-bot
   command: ["python", "app.py"]
@@ -22,9 +16,6 @@ base-chart:
     - --format
     - text
     - --telegram
-    # Uncomment to send to webhook:
-    # - --webhook
-    # - https://my-webhook-service.example.com/api/heartbeat
 
   resources:
     limits:
@@ -34,7 +25,12 @@ base-chart:
       cpu: 50m
       memory: 32Mi
 
-  # CronJob settings
   job:
     backoffLimit: 1
-    ttlSecondsAfterFinished: 86400  # keep for 24 hours
+    ttlSecondsAfterFinished: 86400
+
+# NOTE: envFrom (ConfigMap/Secret injection) is not supported by base-chart template.
+# If telegram-configmap is needed, either:
+# 1. Mount as ConfigMap volume and read from /config
+# 2. Add envFrom support to base-chart template
+# For now, the service must be configured via other means or the template must be extended.

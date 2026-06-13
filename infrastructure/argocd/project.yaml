@@ -18,6 +18,8 @@ spec:
   sourceRepos:
     # Monorepo: charts, values, and secrets all in one place
     - "https://github.com/rprakashdass/homelab-gitops.git"
+    # External Helm repositories
+    - "https://charts.min.io/"
 
   # Allowed deployment targets
   destinations:
