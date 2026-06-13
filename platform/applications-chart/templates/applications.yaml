@@ -4,7 +4,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: home-{{ $name }}
-  namespace: {{ .Values.argocdNamespace }}
+  namespace: {{ .Values.argocdNamespace | default "argocd" }}
   labels:
     app.kubernetes.io/name: home-{{ $name }}
     app.kubernetes.io/component: argocd-application
@@ -15,16 +15,16 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  project: {{ .Values.argocdProject }}
+  project: {{ .Values.argocdProject | default "home" }}
 
   source:
     repoURL: {{ .Values.repository.url }}
-    targetRevision: {{ .Values.repository.branch }}
+    targetRevision: {{ .Values.repository.branch | default "main" }}
     path: {{ $app.path }}
 
   destination:
     server: https://kubernetes.default.svc
-    namespace: {{ .Values.deploymentNamespace }}
+    namespace: {{ .Values.deploymentNamespace | default "home" }}
 
   syncPolicy:
     {{- if .Values.syncPolicy.automated }}
